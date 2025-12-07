@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wrestling Life Simulator</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #1e293b;
+      --accent: #38bdf8;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      background: linear-gradient(120deg, #0f172a, #0b1224 45%, #0f172a);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    header {
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(56, 189, 248, 0.08);
+      border-bottom: 1px solid rgba(226, 232, 240, 0.12);
+    }
+    header h1 { margin: 0; }
+    #layout {
+      display: grid;
+      grid-template-columns: 340px 1fr 320px;
+      grid-template-rows: auto 1fr;
+      gap: 12px;
+      padding: 12px;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid rgba(226, 232, 240, 0.06);
+      border-radius: 10px;
+      padding: 12px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.35);
+    }
+    h2 { margin: 6px 0 10px 0; font-size: 18px; }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px 10px;
+    }
+    .stat-row { display: flex; justify-content: space-between; align-items: center; }
+    .bar {
+      flex: 1;
+      margin-left: 8px;
+      height: 8px;
+      background: rgba(148, 163, 184, 0.35);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .bar span { display: block; height: 100%; background: linear-gradient(90deg, #22d3ee, #38bdf8); }
+    button, input, select {
+      font-family: inherit;
+    }
+    .actions button {
+      width: 100%;
+      padding: 10px 12px;
+      margin-bottom: 6px;
+      border-radius: 8px;
+      border: 1px solid rgba(226, 232, 240, 0.15);
+      background: rgba(56, 189, 248, 0.14);
+      color: var(--text);
+      cursor: pointer;
+      transition: transform 0.08s ease, background 0.2s ease;
+    }
+    .actions button:hover { background: rgba(56, 189, 248, 0.24); transform: translateY(-1px); }
+    .actions button:active { transform: translateY(0); }
+    #log {
+      height: 200px;
+      background: #0b1324;
+      border-radius: 8px;
+      padding: 8px;
+      overflow-y: auto;
+      border: 1px solid rgba(226, 232, 240, 0.06);
+      font-size: 14px;
+      line-height: 1.4;
+    }
+    #schedule { max-height: 280px; overflow-y: auto; }
+    .tag { padding: 2px 6px; border-radius: 6px; font-size: 12px; }
+    .tag.bad { background: #ef4444; color: #fff; }
+    .tag.ok { background: #f59e0b; color: #0f172a; }
+    .tag.good { background: #22c55e; color: #0f172a; }
+    .flex-between { display: flex; align-items: center; justify-content: space-between; }
+    .dual { color: #38bdf8; }
+    .tourney { color: #f472b6; }
+    #custom-input { width: 100%; padding: 8px; border-radius: 8px; border: 1px solid rgba(226,232,240,0.1); background: rgba(255,255,255,0.04); color: var(--text); }
+    #custom-btn { margin-top: 6px; width: 100%; padding: 8px; border-radius: 8px; border: 1px solid rgba(226,232,240,0.1); background: rgba(56,189,248,0.18); color: var(--text); cursor: pointer; }
+    #modal {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,0.6);
+      z-index: 999;
+    }
+    #modal .content {
+      background: #111827;
+      padding: 16px;
+      border-radius: 10px;
+      width: min(560px, 90vw);
+      border: 1px solid rgba(226,232,240,0.1);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    }
+    #modal button { margin-top: 10px; }
+    .small { color: var(--muted); font-size: 12px; }
+    .badge-row { display: flex; gap: 6px; flex-wrap: wrap; }
+    .badge { background: rgba(56, 189, 248, 0.15); padding: 4px 8px; border-radius: 6px; border: 1px solid rgba(56,189,248,0.25); font-size: 12px; }
+    #save-load { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin-top: 6px; }
+    #file-load { width: 100%; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Wrestling Life Simulator</h1>
+      <div class="small">Youth ➜ PA High School ➜ NCAA Career • Weekly, turn-based</div>
+    </div>
+    <div class="badge-row">
+      <span class="badge">Track: skills, money, GPA, fatigue, injuries</span>
+      <span class="badge">Custom text decisions enabled</span>
+      <span class="badge">Save/Load supported</span>
+    </div>
+  </header>
+  <div id="layout">
+    <section class="panel" id="player-panel">
+      <h2>Player Overview</h2>
+      <div id="player-info"></div>
+      <div id="health"></div>
+      <div id="academics"></div>
+      <div id="finances"></div>
+      <div id="reputation"></div>
+      <div id="save-load">
+        <button id="save-btn" title="Save to browser localStorage">Save</button>
+        <button id="load-btn" title="Load from browser localStorage">Load</button>
+        <button id="download-btn" title="Download save as JSON">Download Save</button>
+        <label class="small" for="file-load">Load from file:</label>
+        <input type="file" id="file-load" accept="application/json" />
+      </div>
+    </section>
+    <section class="panel" id="center-panel">
+      <h2>Actions (Weekly)</h2>
+      <div class="actions">
+        <button data-action="tech" title="Focus on neutral/top/bottom technique">Train Technique</button>
+        <button data-action="strength" title="Lifting & explosive work">Train Strength</button>
+        <button data-action="conditioning" title="Runs, sprints, live wrestling">Conditioning Run</button>
+        <button data-action="rest" title="Recover fatigue, reduce injury risk">Rest / Recover</button>
+        <button data-action="study" title="Boost GPA, lower morale slightly">Study / Schoolwork</button>
+        <button data-action="job" title="Earn money (available middle school and older)">Work Part-Time Job</button>
+        <button data-action="gear" title="Purchase better headgear/shoes">Buy Gear</button>
+        <button data-action="doctor" title="Physical therapy or doctor visit">Doctor / Physical Therapy</button>
+        <button data-action="compete" title="Compete in scheduled match or tournament">Compete in Next Event</button>
+      </div>
+      <div style="margin-top:12px;">
+        <label for="custom-input">Custom decision (type your plan, e.g., "extra sprints" or "skip practice"):</label>
+        <input id="custom-input" type="text" placeholder="Do extra sprints today" />
+        <button id="custom-btn">Apply Custom Decision</button>
+      </div>
+      <div style="margin-top:12px;">
+        <button id="end-week">Advance Week</button>
+        <span class="small" id="week-label"></span>
+      </div>
+    </section>
+    <section class="panel" id="stats-panel">
+      <h2>Core Stats</h2>
+      <div id="stats"></div>
+      <h2 style="margin-top:16px;">Schedule</h2>
+      <div id="schedule"></div>
+    </section>
+    <section class="panel" style="grid-column: 1 / span 3;">
+      <h2>Event Log</h2>
+      <div id="log"></div>
+    </section>
+  </div>
+
+  <div id="modal">
+    <div class="content">
+      <h3 id="modal-title"></h3>
+      <div id="modal-body"></div>
+      <button id="modal-close">Close</button>
+    </div>
+  </div>
+
+  <script>
+    // --- Data Models & Defaults ---
+    const stageConfig = [
+      { stage: 'Youth', minAge: 6, maxAge: 10, weightClasses: [60,70,80,90,100,110], baseOpponent: 25 },
+      { stage: 'Middle', minAge: 11, maxAge: 13, weightClasses: [90, 100, 110, 120, 130, 140], baseOpponent: 40 },
+      { stage: 'High', minAge: 14, maxAge: 18, weightClasses: [107,114,121,127,133,139,145,152,160,172,189,215,285], baseOpponent: 55 },
+      { stage: 'College', minAge: 18, maxAge: 23, weightClasses: [125,133,141,149,157,165,174,184,197,285], baseOpponent: 70 }
+    ];
+
+    const stageName = (slug) => slug === 'Middle' ? 'Junior High' : slug;
+
+    const defaultStats = () => ({
+      neutral: 40,
+      top: 40,
+      bottom: 40,
+      strength: 40,
+      speed: 40,
+      conditioning: 40,
+      mentality: 40,
+      toughness: 40,
+      awareness: 40,
+    });
+
+    const newPlayer = () => ({
+      name: 'Prodigy',
+      hometown: 'Pennsylvania',
+      age: 6,
+      grade: 1,
+      gpa: 3.0,
+      money: 200,
+      morale: 65,
+      reputation: 10,
+      recruiting: 0,
+      stats: defaultStats(),
+      fatigue: 10,
+      injuryRisk: 5,
+      injuries: [],
+      weightClass: 60,
+      record: { wins: 0, losses: 0, pins: 0, majors: 0, techs: 0, decisions: 0 },
+      week: 1,
+      achievements: [],
+      gearBonus: 0,
+      stage: 'Youth',
+      seasonPhase: 'Off-Season',
+      schedule: [],
+    });
+
+    let player = newPlayer();
+
+    const logEl = document.getElementById('log');
+    const modal = document.getElementById('modal');
+    const modalTitle = document.getElementById('modal-title');
+    const modalBody = document.getElementById('modal-body');
+    const weekLabel = document.getElementById('week-label');
+
+    function log(message) {
+      const entry = document.createElement('div');
+      entry.textContent = message;
+      logEl.prepend(entry);
+    }
+
+    function currentStageData() {
+      const slug = player.stage === 'Junior High' ? 'Middle' : player.stage;
+      return stageConfig.find(s => s.stage === slug) || stageConfig[0];
+    }
+
+    function updateStage() {
+      const stage = stageConfig.find(s => player.age >= s.minAge && player.age <= s.maxAge);
+      if (!stage) return;
+      if (stage.stage === 'High') {
+        const gradeFromAge = player.age - 5; // approximate: age14 -> grade9
+        player.grade = Math.min(12, Math.max(1, gradeFromAge));
+      } else if (stage.stage === 'College') {
+        player.grade = 13 + Math.max(0, player.age - 18);
+      }
+      player.stage = stageName(stage.stage);
+      player.weightClass = nearestWeight(player.weightClass, stage.weightClasses);
+    }
+
+    function nearestWeight(current, options) {
+      let nearest = options[0];
+      let diff = Math.abs(current - nearest);
+      options.forEach(w => {
+        const d = Math.abs(current - w);
+        if (d < diff) { diff = d; nearest = w; }
+      });
+      return nearest;
+    }
+
+    function clamp(val, min=0, max=100) { return Math.max(min, Math.min(max, val)); }
+
+    function render() {
+      weekLabel.textContent = `Week ${player.week} • Age ${player.age}`;
+      const playerInfo = document.getElementById('player-info');
+      const levelLabel = player.stage === 'College' ? `College Year ${Math.min(4, player.age - 17)}` : `Grade ${player.grade}`;
+      playerInfo.innerHTML = `
+        <div class="flex-between"><strong>${player.name}</strong><span>${player.stage}</span></div>
+        <div>Age: ${player.age} • ${levelLabel}</div>
+        <div>Weight Class: ${player.weightClass}</div>
+        <div>Record: ${player.record.wins}-${player.record.losses} (Pins: ${player.record.pins}, Majors: ${player.record.majors}, Techs: ${player.record.techs}, Decisions: ${player.record.decisions})</div>
+      `;
+      const health = document.getElementById('health');
+      const fatigueTag = player.fatigue < 40 ? 'good' : player.fatigue < 70 ? 'ok' : 'bad';
+      const injuryText = player.injuries.length ? player.injuries.map(i => `${i.name} (${i.severity})`).join(', ') : 'Healthy';
+      health.innerHTML = `
+        <h3>Health</h3>
+        <div>Fatigue: <span class="tag ${fatigueTag}">${player.fatigue}</span> • Injury Risk: ${player.injuryRisk}%</div>
+        <div>Injuries: ${injuryText}</div>
+      `;
+      document.getElementById('academics').innerHTML = `<h3>Academics</h3><div>GPA: ${player.gpa.toFixed(2)}</div>`;
+      document.getElementById('finances').innerHTML = `<h3>Finances</h3><div>Money: $${player.money}</div>`;
+      document.getElementById('reputation').innerHTML = `<h3>Reputation & Recruiting</h3><div>Reputation: ${player.reputation} • Morale: ${player.morale} • Recruiting: ${player.recruiting}</div>`;
+      renderStats();
+      renderSchedule();
+    }
+
+    function renderStats() {
+      const container = document.getElementById('stats');
+      container.innerHTML = '';
+      const grid = document.createElement('div');
+      grid.className = 'stats-grid';
+      Object.entries(player.stats).forEach(([k,v]) => {
+        const row = document.createElement('div');
+        row.className = 'stat-row';
+        row.innerHTML = `<span>${k}</span><div class="bar"><span style="width:${v}%"></span></div><span>${v}</span>`;
+        grid.appendChild(row);
+      });
+      container.appendChild(grid);
+    }
+
+    function renderSchedule() {
+      const container = document.getElementById('schedule');
+      container.innerHTML = '';
+      if (!player.schedule.length) { container.textContent = 'No scheduled events. Hit "Compete" for a pickup match or advance weeks until season starts.'; return; }
+      player.schedule.slice(0, 10).forEach((evt, idx) => {
+        const div = document.createElement('div');
+        const cls = evt.type === 'Dual' ? 'dual' : 'tourney';
+        div.innerHTML = `<div class="flex-between"><span class="${cls}">${evt.type}</span><span class="small">Week ${evt.week}</span></div><div>${evt.name}</div>`;
+        container.appendChild(div);
+        if (idx < player.schedule.length - 1) {
+          const hr = document.createElement('hr'); hr.style.borderColor = 'rgba(226,232,240,0.05)'; container.appendChild(hr);
+        }
+      });
+    }
+
+    // --- Core Loop Helpers ---
+    function adjustGPA(change) { player.gpa = clamp(player.gpa + change, 0, 4.0); }
+
+    function applyInjury(chanceMultiplier = 1) {
+      const roll = Math.random() * 100;
+      const chance = clamp(player.injuryRisk * chanceMultiplier, 1, 90);
+      if (roll > chance) return null;
+      const severities = [
+        { name: 'Bruised rib', severity: 'Minor', risk: 55, penalty: 5, weeks: [1,2] },
+        { name: 'Shoulder tweak', severity: 'Moderate', risk: 30, penalty: 10, weeks: [2,5] },
+        { name: 'Knee sprain', severity: 'Major', risk: 12, penalty: 18, weeks: [6,12] },
+        { name: 'ACL tear', severity: 'Catastrophic', risk: 3, penalty: 35, weeks: [20,52] },
+      ];
+      const selected = pickWeighted(severities, s => s.risk);
+      const weeks = randInt(selected.weeks[0], selected.weeks[1]);
+      const injury = { name: selected.name, severity: selected.severity, remaining: weeks, penalty: selected.penalty };
+      player.injuries.push(injury);
+      log(`⚠️ Injury: ${injury.name} (${injury.severity}) for ~${weeks} weeks.`);
+      return injury;
+    }
+
+    function pickWeighted(list, weightFn) {
+      const total = list.reduce((sum, item) => sum + weightFn(item), 0);
+      let roll = Math.random() * total;
+      for (const item of list) {
+        roll -= weightFn(item);
+        if (roll <= 0) return item;
+      }
+      return list[list.length - 1];
+    }
+
+    function randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+
+    function fatiguePenalty() {
+      return Math.floor(player.fatigue / 10) + activeInjuryPenalty();
+    }
+
+    function activeInjuryPenalty() {
+      return player.injuries.reduce((sum, i) => sum + (i.remaining > 0 ? i.penalty : 0), 0);
+    }
+
+    function decayFatigue() {
+      player.fatigue = clamp(player.fatigue - 10);
+      player.injuryRisk = clamp(player.injuryRisk - 2, 1, 95);
+      player.injuries.forEach(i => { i.remaining = Math.max(0, i.remaining - 1); });
+      player.injuries = player.injuries.filter(i => i.remaining > 0);
+    }
+
+    // --- Actions ---
+    const actionHandlers = {
+      tech: () => {
+        modifyStats({ neutral: 2, top: 2, bottom: 2, awareness: 1 });
+        player.fatigue += 10; player.morale += 2; player.injuryRisk += 2;
+        log('You drilled technique. Neutral/top/bottom improved.');
+        maybeInjury(0.9);
+      },
+      strength: () => {
+        modifyStats({ strength: 3, speed: 1, mentality: 1 });
+        player.fatigue += 12; player.injuryRisk += 4; log('Heavy lifts built strength.');
+        maybeInjury(1.1);
+      },
+      conditioning: () => {
+        modifyStats({ conditioning: 3, speed: 1, toughness: 1 });
+        player.fatigue += 14; player.injuryRisk += 3; log('Conditioning raised your gas tank.');
+        maybeInjury(1.2);
+      },
+      rest: () => {
+        player.fatigue = clamp(player.fatigue - 20);
+        player.injuryRisk = clamp(player.injuryRisk - 5, 1, 95);
+        player.morale = clamp(player.morale + 4, 0, 100);
+        log('Rest day: fatigue melted away.');
+      },
+      study: () => {
+        adjustGPA(0.05); player.fatigue = clamp(player.fatigue - 6);
+        player.morale = clamp(player.morale - 2, 0, 100);
+        log('You hit the books. GPA edges up.');
+      },
+      job: () => {
+        const stage = currentStageData();
+        if (stage.stage === 'Youth') { log('Too young to work a job.'); return; }
+        const pay = randInt(35, 80);
+        player.money += pay; player.fatigue += 12; player.morale -= 2;
+        log(`You worked a shift and earned $${pay}.`);
+      },
+      gear: () => {
+        const cost = 120;
+        if (player.money < cost) { log('Not enough money for gear.'); return; }
+        player.money -= cost; player.gearBonus += 1; player.morale += 3;
+        log('New gear acquired. Small performance bump.');
+      },
+      doctor: () => {
+        const cost = 75;
+        if (player.money < cost) { log('Cannot afford doctor/PT.'); return; }
+        player.money -= cost;
+        player.injuries.forEach(i => i.remaining = Math.max(0, i.remaining - 2));
+        player.fatigue = clamp(player.fatigue - 8);
+        log('Doctor visit speeds recovery.');
+      },
+      compete: () => {
+        const gpaGate = player.stage === 'College' ? 2.0 : 1.8;
+        if (player.gpa < gpaGate) { log('Ineligible to compete due to low GPA. Study up!'); return; }
+        if (player.injuries.some(i => i.severity === 'Catastrophic')) { log('Season-ending injury prevents competition.'); return; }
+        const entryFee = 40;
+        if (player.money < entryFee) { log('Not enough money for travel/entry. Work a job or get a sponsor.'); return; }
+        player.money -= entryFee;
+        if (!player.schedule.length || player.schedule[0].week > player.week) {
+          const scrim = { name: 'Local Scrimmage', type: 'Dual', week: player.week, level: 'Local' };
+          player.schedule.unshift(scrim);
+        }
+        const evt = player.schedule.shift();
+        if (evt.type === 'Dual') simulateDual(evt); else simulateTournament(evt);
+      },
+    };
+
+    function maybeInjury(mult=1) { applyInjury(mult); }
+
+    function modifyStats(deltas) {
+      Object.entries(deltas).forEach(([k,v]) => {
+        player.stats[k] = clamp((player.stats[k] || 0) + v, 0, 100);
+      });
+    }
+
+    // --- Match Simulation ---
+    function basePerformance() {
+      const core = (player.stats.neutral + player.stats.top + player.stats.bottom) / 3;
+      const power = (player.stats.strength + player.stats.speed) / 2;
+      const grit = (player.stats.conditioning + player.stats.toughness + player.stats.mentality) / 3;
+      const healthPenalty = fatiguePenalty();
+      return core * 0.45 + power * 0.25 + grit * 0.25 + player.gearBonus * 2 - healthPenalty;
+    }
+
+    function opponentRating(level = 'Local') {
+      const stage = currentStageData();
+      let base = stage ? stage.baseOpponent : 40;
+      const adjustments = { Local: 0, District: 10, Regional: 18, State: 25, National: 35, College: 40 };
+      base += adjustments[level] || 0;
+      base += randInt(-8, 12);
+      return clamp(base, 20, 99);
+    }
+
+    function simulateDual(evt) {
+      const opp = opponentRating(evt.level || 'Local');
+      const perf = basePerformance();
+      const scoreDiff = perf - opp + randInt(-12, 12);
+      const fatigueCost = 16;
+      player.fatigue += fatigueCost;
+      player.morale += scoreDiff > 0 ? 4 : -3;
+      player.reputation += scoreDiff > 0 ? 2 : -1;
+      if (scoreDiff > 18) { player.record.techs++; player.record.wins++; log(`Tech fall! You dominated ${evt.name}.`); }
+      else if (scoreDiff > 10) { player.record.majors++; player.record.wins++; log(`Major decision in ${evt.name}.`); }
+      else if (scoreDiff > 3) { player.record.decisions = (player.record.decisions||0) + 1; player.record.wins++; log(`Close decision win in ${evt.name}.`); }
+      else if (scoreDiff > -8) { player.record.decisions = (player.record.decisions||0) + 1; player.record.losses++; log(`Tough decision loss vs ${evt.name}.`); }
+      else if (scoreDiff > -16) { player.record.majors++; player.record.losses++; log(`Majored by opponent in ${evt.name}.`); }
+      else { player.record.pins++; player.record.losses++; log(`You were pinned in ${evt.name}.`); }
+      maybeInjury(scoreDiff < 0 ? 1.5 : 1);
+    }
+
+    function simulateTournament(evt) {
+      const bracketSize = 4;
+      const rounds = ['Quarterfinal', 'Semifinal', 'Final'];
+      let alive = true;
+      let placing = 'DNQ';
+      for (let r = 0; r < rounds.length; r++) {
+        if (!alive) break;
+        const levelAdj = evt.level || 'Local';
+        const opp = opponentRating(levelAdj) + r * 2;
+        const perf = basePerformance();
+        const diff = perf - opp + randInt(-10, 10);
+        player.fatigue += 8;
+        if (diff > 0) {
+          log(`${rounds[r]} win at ${evt.name}.`);
+          placing = r === 2 ? 'Champion' : 'Finalist';
+          player.reputation += 3;
+        } else {
+          log(`${rounds[r]} loss at ${evt.name}. Dropped to consi.`);
+          const consiDiff = perf - (opp - 5) + randInt(-8, 8);
+          alive = consiDiff > -4;
+          placing = alive ? '3rd place' : 'Early exit';
+          player.reputation += alive ? 1 : -1;
+        }
+      }
+      if (evt.level === 'State' && placing === 'Champion') player.achievements.push('PA State Champ');
+      if (evt.level === 'State' && placing.includes('place')) player.achievements.push('PA State Medalist');
+      player.record.wins += placing === 'Champion' ? 3 : placing === 'Finalist' ? 2 : placing === '3rd place' ? 2 : 1;
+      player.record.losses += placing === 'Champion' ? 0 : 1;
+      log(`Tournament finish: ${placing}.`);
+      maybeInjury(placing.includes('exit') ? 1.5 : 1);
+    }
+
+    // --- Custom Decision Parsing ---
+    function handleCustomDecision(text) {
+      const lower = text.toLowerCase();
+      let summary = [];
+      if (lower.includes('sprint') || lower.includes('extra conditioning') || lower.includes('run')) {
+        modifyStats({ conditioning: 2, speed: 1 }); player.fatigue += 10; summary.push('Extra conditioning added.');
+      }
+      if (lower.includes('skip') || lower.includes('video game')) {
+        player.fatigue = clamp(player.fatigue - 10); player.morale += 3; player.reputation -= 2; summary.push('Skipped practice. Rested but reputation dipped.');
+      }
+      if (lower.includes('coach')) { player.reputation += 2; summary.push('Coach appreciated initiative.'); }
+      if (lower.includes('cut weight') || lower.includes('weight cut')) {
+        const stage = currentStageData();
+        player.fatigue += 12; player.injuryRisk += 4; player.weightClass = Math.max(player.weightClass - 7, stage.weightClasses[0]);
+        summary.push('Weight cut executed. Risk increased.');
+      }
+      if (lower.includes('drill shots') || lower.includes('takedown')) { modifyStats({ neutral: 2, speed: 1 }); summary.push('Takedown reps boosted neutral.'); }
+      if (lower.includes('lift')) { modifyStats({ strength: 2, toughness: 1 }); player.fatigue += 8; summary.push('Lifted extra.'); }
+      if (!summary.length) summary.push('Nothing notable happened.');
+      log(summary.join(' '));
+    }
+
+    // --- Random Events ---
+    function randomEvent() {
+      const roll = Math.random();
+      if (roll < 0.08) {
+        player.fatigue += 12; log('🤒 You caught a cold. Take it easy this week.');
+      } else if (roll < 0.14) {
+        const bonus = randInt(40, 90);
+        player.money += bonus; log(`💰 Small sponsor liked your hustle: +$${bonus}.`);
+      } else if (roll < 0.19) {
+        player.morale -= 5; log('Coach was critical of your effort.');
+      } else if (roll < 0.24) {
+        player.morale += 6; player.reputation += 2; log('Coach praised your toughness.');
+      } else if (roll < 0.28) {
+        player.schedule.push({ name: 'Wildcard Local Tournament', type: 'Tournament', level: 'Local', week: player.week + 1 });
+        log('Wildcard invite to a local tournament next week!');
+      }
+    }
+
+    // --- Schedule Generation ---
+    function generateSeason() {
+      const season = [];
+      const baseWeek = player.week + 1;
+      const isHS = player.stage === 'High' || player.stage === 'Junior High';
+      const isCollege = player.stage === 'College';
+      const weeks = isCollege ? [
+        { name: 'Dual vs Conference Rival', type: 'Dual', level: 'College' },
+        { name: 'Mid-Season Open', type: 'Tournament', level: 'College' },
+        { name: 'Dual vs Ranked Team', type: 'Dual', level: 'College' },
+        { name: 'Conference Dual Finale', type: 'Dual', level: 'College' },
+        { name: 'Conference Tournament', type: 'Tournament', level: 'Regional' },
+        { name: 'National Qualifier', type: 'Tournament', level: 'State' },
+        { name: 'NCAA Championship', type: 'Tournament', level: 'National' },
+      ] : [
+        { name: 'Dual vs Rival', type: 'Dual', level: isHS ? 'District' : 'Local' },
+        { name: 'Holiday Tournament', type: 'Tournament', level: isHS ? 'Regional' : 'Local' },
+        { name: 'Conference Dual', type: 'Dual', level: isHS ? 'District' : 'Local' },
+        { name: 'Sectional Duals', type: 'Dual', level: isHS ? 'District' : 'Local' },
+        { name: 'District Tournament', type: 'Tournament', level: 'District' },
+        { name: 'Regional Tournament', type: 'Tournament', level: 'Regional' },
+        { name: 'State Tournament', type: 'Tournament', level: 'State' },
+      ];
+      weeks.forEach((w, idx) => season.push({ ...w, week: baseWeek + idx }));
+      player.schedule = season;
+    }
+
+    // --- Turn Flow ---
+    function endWeek() {
+      player.week += 1;
+      if (player.week % 52 === 0) player.age += 1;
+      updateStage();
+      const inSeason = player.stage !== 'Youth' ? true : player.week % 8 < 5;
+      if (inSeason && !player.schedule.length) generateSeason();
+      decayFatigue();
+      randomEvent();
+      checkRecruiting();
+      render();
+    }
+
+    function checkRecruiting() {
+      if (player.stage === 'High' && player.reputation > 60 && player.gpa > 3.0) {
+        player.recruiting = Math.min(100, player.recruiting + 5);
+        if (player.recruiting > 70 && !player.achievements.includes('College Offer')) {
+          player.achievements.push('College Offer');
+          showModal('College Offer', 'A fictional college is offering you a partial scholarship! Reputation and GPA paid off.');
+          player.money += 500;
+        }
+      }
+    }
+
+    // --- Modal ---
+    function showModal(title, body) {
+      modalTitle.textContent = title;
+      modalBody.textContent = body;
+      modal.style.display = 'flex';
+    }
+    document.getElementById('modal-close').onclick = () => modal.style.display = 'none';
+    modal.onclick = (e) => { if (e.target === modal) modal.style.display = 'none'; };
+
+    // --- Persistence ---
+    function saveGame() {
+      localStorage.setItem('wrest-life-save', JSON.stringify(player));
+      log('Game saved.');
+    }
+    function downloadSave() {
+      const blob = new Blob([JSON.stringify(player, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'wrestling-life-save.json'; a.click();
+      URL.revokeObjectURL(url);
+      log('Save downloaded as JSON.');
+    }
+    function loadGame() {
+      const data = localStorage.getItem('wrest-life-save');
+      if (!data) { log('No save found.'); return; }
+      player = JSON.parse(data);
+      render();
+      log('Save loaded.');
+    }
+    function loadFromFile(file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          player = JSON.parse(e.target.result);
+          render();
+          log('Loaded save file.');
+        } catch (err) {
+          log('Could not read save file.');
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    // --- Event Listeners ---
+    document.querySelectorAll('.actions button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const action = btn.dataset.action;
+        if (actionHandlers[action]) {
+          actionHandlers[action]();
+          render();
+        }
+      });
+    });
+    document.getElementById('custom-btn').onclick = () => {
+      const text = document.getElementById('custom-input').value.trim();
+      if (!text) return;
+      handleCustomDecision(text);
+      document.getElementById('custom-input').value = '';
+      render();
+    };
+    document.getElementById('end-week').onclick = endWeek;
+    document.getElementById('save-btn').onclick = saveGame;
+    document.getElementById('load-btn').onclick = loadGame;
+    document.getElementById('download-btn').onclick = downloadSave;
+    document.getElementById('file-load').addEventListener('change', (e) => {
+      if (e.target.files.length) loadFromFile(e.target.files[0]);
+    });
+
+    // --- Init ---
+    generateSeason();
+    render();
+    log('Welcome! Choose an action to start the week.');
+
+    /*
+      How to run: open index.html in a modern browser (Chrome/Firefox/Edge). No build step required.
+    */
+  </script>
+</body>
+</html>
