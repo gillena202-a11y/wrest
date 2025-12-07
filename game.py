@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import random
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from enum import Enum, auto
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -522,38 +522,70 @@ class RandomEvents:
 
 
 def render_status(player: Player, season: Season) -> str:
-    lines = [
-        f"Week {season.week} — Grade {player.grade} ({player.career_stage.name.title()})",
-        f"Weight Class: {player.weight_class} | Fatigue: {player.fatigue} | Injury Risk: {player.injury_risk}%",
-        f"Strength: {player.stats.strength}  Technique: {player.stats.technique}  Speed: {player.stats.speed}",
-        f"Stamina: {player.stats.stamina}  Mentality: {player.stats.mentality}  Toughness: {player.stats.toughness}",
-        f"Money: ${player.finance.money} | Record: {player.record.wins}-{player.record.losses} | Confidence: {player.stats.confidence}",
-        f"Weight Cut Pressure: {player.weight_cut_pressure}",
+    def meter(label: str, value: int, max_value: int = 100, width: int = 18) -> str:
+        filled = int(width * min(value, max_value) / max_value)
+        bar = "█" * filled + "░" * (width - filled)
+        return f"{label:<11} [{bar}] {value:>3}/{max_value}"
+
+    header = f"Week {season.week} — Grade {player.grade} ({player.career_stage.name.title()})"
+    vitals = [
+        meter("Fatigue", player.fatigue),
+        meter("Injury", player.injury_risk, 95),
+        meter("WeightCut", player.weight_cut_pressure),
     ]
-    if player.injuries:
-        lines.append("Active injuries: " + ", ".join(f"{inj.name} ({inj.severity.name})" for inj in player.injuries))
-    if season.recruitment_interest:
-        lines.append(f"Recruiting interest: {season.recruitment_interest}")
-    return "\n".join(lines)
+    stats_block = [
+        f"Strength   {player.stats.strength:>3}    Technique {player.stats.technique:>3}    Speed {player.stats.speed:>3}",
+        f"Stamina    {player.stats.stamina:>3}    Mentality {player.stats.mentality:>3}    Toughness {player.stats.toughness:>3}",
+        f"Confidence {player.stats.confidence:>3}    Weight Class {player.weight_class:>3}",
+    ]
+    career = [
+        f"Record {player.record.wins}-{player.record.losses} | Pins {player.record.pins} Majors {player.record.majors} Decisions {player.record.decisions}",
+        f"Money: ${player.finance.money} | Recruiting: {season.recruitment_interest}",
+    ]
+    injuries = [
+        "Active injuries: "
+        + (", ".join(f"{inj.name} ({inj.severity.name})" for inj in player.injuries) if player.injuries else "None")
+    ]
+
+    def panel(title: str, content: List[str]) -> str:
+        width = max(len(title) + 4, *(len(line) + 2 for line in content))
+        top = f"┌{'─' * (width - 2)}┐"
+        mid_title = f"│ {title.ljust(width - 4)} │"
+        body = [f"│ {line.ljust(width - 4)} │" for line in content]
+        bottom = f"└{'─' * (width - 2)}┘"
+        return "\n".join([top, mid_title, *body, bottom])
+
+    return "\n".join(
+        [
+            panel("Weekly Snapshot", [header, *vitals]),
+            panel("Attributes", stats_block),
+            panel("Career", career),
+            panel("Health", injuries),
+        ]
+    )
 
 
 def weekly_menu() -> str:
-    return (
-        "Choose an action:\n"
-        "1. Train technique (+1–3 tech, +fatigue)\n"
-        "2. Strength training (+1–2 strength, +fatigue)\n"
-        "3. Conditioning (+1 stamina/speed, +fatigue)\n"
-        "4. Rest (-fatigue)\n"
-        "5. Study film (+awareness)\n"
-        "6. Manage weight\n"
-        "7. Purchase equipment\n"
-        "8. Private coach session\n"
-        "9. Seek NIL/sponsorship (HS seniors & college)\n"
-        "10. Enter dual meet (in season)\n"
-        "11. Enter tournament (in season)\n"
-        "12. Save game\n"
-        "13. Quit\n"
-    )
+    options = [
+        "1. Train technique (+1–3 tech, +fatigue)",
+        "2. Strength training (+1–2 strength, +fatigue)",
+        "3. Conditioning (+1 stamina/speed, +fatigue)",
+        "4. Rest (big fatigue recovery)",
+        "5. Study film (+awareness, low fatigue)",
+        "6. Manage weight (reduce cut pressure)",
+        "7. Purchase equipment (+confidence)",
+        "8. Private coach session (+technique/mentality)",
+        "9. Seek NIL/sponsorship (HS seniors & college)",
+        "10. Enter dual meet (in season)",
+        "11. Enter tournament (in season)",
+        "12. Save game",
+        "13. Quit",
+    ]
+    width = max(len(line) for line in options) + 4
+    border = f"┌{'─' * (width - 2)}┐"
+    body = "\n".join(f"│ {line.ljust(width - 4)} │" for line in options)
+    footer = f"└{'─' * (width - 2)}┘"
+    return "\n".join(["Choose an action:", border, body, footer])
 
 
 def process_choice(choice: str, player: Player, season: Season) -> Optional[str]:
